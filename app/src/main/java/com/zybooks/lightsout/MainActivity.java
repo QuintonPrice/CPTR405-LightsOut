@@ -1,24 +1,32 @@
 package com.zybooks.lightsout;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 public class MainActivity extends AppCompatActivity {
+    private int mOnColorId;
+    private final int REQUEST_CODE_COLOR = 0;
+    private final String GAME_STATE = "gameState";
 
     private LightsOutGame mGame;
     private Button[][] mButtons;
     private int mOnColor;
     private int mOffColor;
+    private int topLeftCLickCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mOnColorId = R.color.yellow;
 
         mOnColor = ContextCompat.getColor(this, R.color.yellow);
         mOffColor = ContextCompat.getColor(this, R.color.black);
@@ -35,12 +43,27 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mGame = new LightsOutGame();
-        startGame();
+        if (savedInstanceState == null) {
+            startGame();
+        }
+        else {
+            String gameState = savedInstanceState.getString(GAME_STATE);
+            mGame.setState(gameState);
+            setButtonColors();
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putString(GAME_STATE, mGame.getState());
     }
 
     private void startGame() {
         mGame.newGame();
         setButtonColors();
+        topLeftCLickCount = 0;
+
     }
 
     public void onLightButtonClick(View view) {
@@ -51,6 +74,14 @@ public class MainActivity extends AppCompatActivity {
                 if (view == mButtons[row][col]) {
                     mGame.selectLight(row, col);
                     buttonFound = true;
+                    if (row == 0 && col == 0) {
+                        if (++topLeftCLickCount >= 5) {
+                            mGame.turnAllOff();
+                            topLeftCLickCount = 0;
+                        }
+                    } else {
+                        topLeftCLickCount = 0;
+                    }
                 }
             }
         }
@@ -79,5 +110,28 @@ public class MainActivity extends AppCompatActivity {
 
     public void onNewGameClick(View view) {
         startGame();
+    }
+
+    public void onHelpClick(View view) {
+        Intent intent = new Intent(this, HelpActivity.class);
+        startActivity(intent);
+    }
+
+    public void onChangeColorClick(View view) {
+        // Send the current color ID to ColorActivity
+        Intent intent = new Intent(this, ColorActivity.class);
+        intent.putExtra(ColorActivity.EXTRA_COLOR, mOnColorId);
+        startActivityForResult(intent, REQUEST_CODE_COLOR);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE_COLOR) {
+            // Create the "on" button color based on the chosen color ID from ColorActivity
+            mOnColorId = data.getIntExtra(ColorActivity.EXTRA_COLOR, R.color.yellow);
+            mOnColor = ContextCompat.getColor(this, mOnColorId);
+            setButtonColors();
+        }
     }
 }
